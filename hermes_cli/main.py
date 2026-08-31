@@ -8585,12 +8585,19 @@ def cmd_gui(args: argparse.Namespace):
         sys.exit(1)
 
     launch_command = [str(packaged_executable)]
-    if not _desktop_linux_sandbox_fixup(packaged_executable):
-        if _desktop_linux_needs_no_sandbox() and _desktop_linux_sandbox_helper_is_regular_file(packaged_executable):
-            print("⚠ Falling back to --no-sandbox because this Linux host restricts unprivileged user namespaces and the Electron sandbox helper could not be configured.")
-            launch_command.append("--no-sandbox")
-        else:
-            sys.exit(1)
+    # Consult the skip-sandbox check BEFORE any sudo attempt: a non-interactive
+    # launch (.desktop entry, headless session) must never block on a password
+    # prompt just to configure a helper we're about to bypass anyway.
+    if _desktop_linux_needs_no_sandbox() and _desktop_linux_sandbox_helper_is_regular_file(packaged_executable):
+        print("⚠ Falling back to --no-sandbox because this Linux host restricts unprivileged user namespaces (or ELECTRON_DISABLE_SANDBOX=1) and the Electron sandbox helper could not be guaranteed.")
+        launch_command.append("--no-sandbox")
+    elif not _desktop_linux_sandbox_fixup(packaged_executable):
+        # Never hard-fail a desktop launch over the sandbox helper: when
+        # unprivileged user namespaces are available Chromium uses its
+        # namespace sandbox and the root-owned helper is not required, and
+        # when they are not, --no-sandbox still beats refusing to launch.
+        print("⚠ Could not configure Electron's sandbox helper (sudo unavailable); falling back to --no-sandbox.")
+        launch_command.append("--no-sandbox")
 
     launch_command.extend(config_electron_flags)
     print(f"→ Launching packaged Hermes Desktop: {' '.join(launch_command)}")
