@@ -536,6 +536,8 @@ export const ru = defineLocale({
         agentSuccess: name => `Плагин агента ${name} установлен`,
         desktopSuccess: name => `Плагин приложения ${name} установлен`,
         agentFailed: 'Не удалось установить плагин агента',
+        installUncertain:
+          'Hermes перестал ждать результат установки, но плагин может всё ещё устанавливаться. Закройте это окно и обновите список плагинов перед повторной установкой.',
         desktopFailed: 'Не удалось установить плагин приложения',
         missingEnv: (_name, vars) => `Не хватает переменных окружения: ${vars}. Добавьте их в Настройки → Ключи.`,
         toolsConnected: n => `Подключено инструментов: ${n}`,
@@ -4076,6 +4078,9 @@ export const ru = defineLocale({
     sessionUnavailable: 'Сеанс недоступен',
     createSessionFailed: 'Не удалось создать новый сеанс',
     promptFailed: 'Промпт не удался',
+    staleSessionTitle: 'Чат устарел',
+    staleSessionBody:
+      'Это окно отставало от другого вида того же чата. Загружены последние сообщения. Отправьте снова, если всё ещё хотите.',
     providerCredentialRequired: 'Добавьте учётные данные провайдера перед отправкой первого сообщения.',
     emptySlashCommand: 'пустая слэш-команда',
     desktopCommands: 'Команды desktop',

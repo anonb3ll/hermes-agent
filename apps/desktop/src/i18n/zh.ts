@@ -676,6 +676,7 @@ export const zh = defineLocale({
         agentSuccess: name => `智能体插件 ${name} 已安装`,
         desktopSuccess: name => `桌面插件 ${name} 已安装`,
         agentFailed: '智能体插件安装失败',
+        installUncertain: 'Hermes 已停止等待安装结果，但插件可能仍在安装。关闭此窗口并刷新插件列表，然后再尝试安装。',
         desktopFailed: '桌面插件安装失败',
         missingEnv: (_name, vars) => `缺少环境变量：${vars}。请在设置 → 密钥中添加。`
       }
@@ -4922,6 +4923,8 @@ export const zh = defineLocale({
     sessionUnavailable: '会话不可用',
     createSessionFailed: '无法创建新会话',
     promptFailed: '提示词发送失败',
+    staleSessionTitle: '对话已过期',
+    staleSessionBody: '此窗口落后于同一对话的其他窗口。已加载最新消息。若仍要发送请再试一次。',
     providerCredentialRequired: '发送第一条消息前请先添加提供方凭据。',
     emptySlashCommand: '空 slash 命令',
     desktopCommands: '桌面端命令',

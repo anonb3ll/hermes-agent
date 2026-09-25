@@ -761,6 +761,7 @@ export interface Translations {
         agentSuccess: (name: string) => string
         desktopSuccess: (name: string) => string
         agentFailed: string
+        installUncertain: string
         desktopFailed: string
         missingEnv: (name: string, vars: string) => string
       }
@@ -2583,6 +2584,11 @@ export interface Translations {
       onGateway: (name: string, gateway: string) => string
       switchTo: (name: string, gateway: string) => string
       deleteOn: (gateway: string) => string
+    }
+    status: {
+      unread: (count: number) => string
+      needsInput: (count: number) => string
+      working: (count: number) => string
     }
     remoteOverride: {
       menuItem: string
@@ -4420,6 +4426,8 @@ export interface Translations {
     sessionUnavailable: string
     createSessionFailed: string
     promptFailed: string
+    staleSessionTitle: string
+    staleSessionBody: string
     providerCredentialRequired: string
     emptySlashCommand: string
     desktopCommands: string

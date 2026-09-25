@@ -909,6 +909,8 @@ export const esOverrides = {
         agentSuccess: name => `Plugin del agente ${name} instalado`,
         desktopSuccess: name => `Plugin de escritorio ${name} instalado`,
         agentFailed: 'Error al instalar el plugin del agente',
+        installUncertain:
+          'Hermes dejó de esperar el resultado de la instalación, pero es posible que el plugin siga instalándose. Cierra este cuadro y actualiza la lista de plugins antes de volver a instalarlo.',
         desktopFailed: 'Error al instalar el plugin de escritorio',
         missingEnv: (name, vars) =>
           `${name} está instalado, pero necesita una clave para funcionar: ${vars}. Añádela ahora o las herramientas del plugin fallarán.`
@@ -3519,6 +3521,12 @@ export const esOverrides = {
       switchTo: (name: string, gateway: string) => `Cambiar a ${name} en ${gateway}`,
       deleteOn: (gateway: string) => ` en ${gateway}`
     },
+    status: {
+      unread: (count: number) => (count === 1 ? '1 sesión sin leer' : `${count} sesiones sin leer`),
+      needsInput: (count: number) =>
+        count === 1 ? '1 sesión espera tu respuesta' : `${count} sesiones esperan tu respuesta`,
+      working: (count: number) => (count === 1 ? '1 sesión en ejecución' : `${count} sesiones en ejecución`)
+    },
     remoteOverride: {
       menuItem: 'Conectar a un host remoto…',
       badge: (host: string) => `Se ejecuta en ${host}`,
@@ -5868,6 +5876,9 @@ export const esOverrides = {
     sessionUnavailable: 'Sesión no disponible',
     createSessionFailed: 'No se pudo crear una sesión nueva',
     promptFailed: 'Falló el prompt',
+    staleSessionTitle: 'Chat desactualizado',
+    staleSessionBody:
+      'Esta ventana estaba detrás de otra vista del mismo chat. Se cargaron los mensajes más recientes. Envía de nuevo si aún quieres.',
     providerCredentialRequired: 'Añade una credencial de proveedor antes de enviar tu primer mensaje.',
     emptySlashCommand: 'comando slash vacío',
     desktopCommands: 'Comandos de escritorio',

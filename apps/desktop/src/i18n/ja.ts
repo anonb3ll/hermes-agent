@@ -401,6 +401,8 @@ export const ja = defineLocale({
     plugins: {
       openFolder: 'デスクトッププラグインフォルダーを開く',
       installModal: {
+        installUncertain:
+          'Hermes はインストール結果の待機を終了しましたが、プラグインのインストールはまだ進行中の可能性があります。この画面を閉じ、再インストールする前にプラグイン一覧を再スキャンしてください。',
         installFromGit: 'Git からインストール',
         reviewRepository: 'リポジトリを確認',
         repoPlaceholder: 'https://github.com/owner/repo',
@@ -3949,6 +3951,9 @@ export const ja = defineLocale({
     sessionUnavailable: 'セッションが利用できません',
     createSessionFailed: '新しいセッションを作成できませんでした',
     promptFailed: 'プロンプトに失敗しました',
+    staleSessionTitle: 'チャットが最新ではありません',
+    staleSessionBody:
+      'このウィンドウは同じチャットの別ビューより遅れています。最新のメッセージを読み込みました。送信する場合はもう一度送ってください。',
     providerCredentialRequired: '最初のメッセージを送信する前にプロバイダー認証情報を追加してください。',
     emptySlashCommand: '空のスラッシュコマンド',
     desktopCommands: 'デスクトップコマンド',

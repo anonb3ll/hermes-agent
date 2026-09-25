@@ -899,6 +899,8 @@ export const en: Translations = {
         agentSuccess: name => `Agent plugin ${name} installed`,
         desktopSuccess: name => `Desktop plugin ${name} installed`,
         agentFailed: 'Agent plugin install failed',
+        installUncertain:
+          'Hermes stopped waiting for the install result, but the plugin may still be installing. Close this dialog and use Rescan in Plugins before trying Install again.',
         desktopFailed: 'Desktop plugin install failed',
         missingEnv: (name, vars) =>
           `${name} is installed but needs a key before it can work: ${vars}. Add it now, or the plugin's tools will fail.`
@@ -3086,6 +3088,12 @@ export const en: Translations = {
       onGateway: (name, gateway) => `${name} · ${gateway}`,
       switchTo: (name, gateway) => `Switch to ${name} on ${gateway}`,
       deleteOn: gateway => ` on ${gateway}`
+    },
+    status: {
+      unread: (count: number) => (count === 1 ? '1 unread session' : `${count} unread sessions`),
+      needsInput: (count: number) =>
+        count === 1 ? '1 session needs your answer' : `${count} sessions need your answer`,
+      working: (count: number) => (count === 1 ? '1 session running' : `${count} sessions running`)
     },
     remoteOverride: {
       menuItem: 'Connect to a remote host…',
@@ -5327,6 +5335,9 @@ export const en: Translations = {
     sessionUnavailable: 'Session unavailable',
     createSessionFailed: 'Could not create a new session',
     promptFailed: 'Prompt failed',
+    staleSessionTitle: 'Chat out of date',
+    staleSessionBody:
+      'This window was behind another view of the same chat. Latest messages were loaded. Send again if you still want to.',
     providerCredentialRequired: 'Add a provider credential before sending your first message.',
     emptySlashCommand: 'empty slash command',
     desktopCommands: 'Desktop commands',
