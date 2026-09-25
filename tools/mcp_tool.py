@@ -235,6 +235,11 @@ _MAX_RECONNECT_RETRIES = 5
 _MAX_INITIAL_CONNECT_RETRIES = 3 # retries for the very first connection attempt
 _MAX_BACKOFF_SECONDS = 60
 _RECYCLED_RECONNECT_TIMEOUT = 15.0
+# Ceiling on leaving a remote transport (ClientSession + stream pump __aexit__) once the session
+# has decided to reconnect or shut down. A dead peer can leave the SDK's writer blocked, and an
+# unbounded teardown then wedges the server in `degraded` forever — run() never reaches its
+# retry/park logic. Past this, the dead transport is abandoned (cancelled), not awaited.
+_TRANSPORT_TEARDOWN_TIMEOUT = 10.0
 # Parked servers (tools deregistered) self-probe on this cadence: nothing else can revive them.
 _PARKED_RETRY_INTERVAL = 300
 # Bounded wait for a respawned stdio child when a call finds it dead (gateway restarts kill
