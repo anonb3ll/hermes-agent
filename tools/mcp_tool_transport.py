@@ -9,6 +9,7 @@ import urllib.parse
 import urllib.request
 from contextlib import asynccontextmanager
 from typing import Dict, Optional, Set
+import anyio
 from utils import normalize_proxy_url
 from agent.proxy_bypass import is_loopback_host, should_bypass_proxy
 from agent import runtime_cwd as _runtime_cwd
@@ -243,13 +244,28 @@ class MCPServerTransportMixin:
 
     async def _serve_transport(self, transport_cm, label: str, connect_timeout: float) -> str:
         """Open *transport_cm*, wrap its streams in a ClientSession and serve it. Streams are indexed,
-        not unpacked (mcp 1.x yields a 3-tuple, 2.x a pair); a TaskGroup drop maps to ``"reconnect"``."""
+        not unpacked (mcp 1.x yields a 3-tuple, 2.x a pair); a TaskGroup drop maps to ``"reconnect"``.
+
+        Teardown is bounded: once serving returns, leaving the session and transport gets
+        ``_TRANSPORT_TEARDOWN_TIMEOUT`` seconds. After a peer restart the SDK's writer can block
+        on a dead stream ("transport write blocked"), and an unbounded ``__aexit__`` then parks the
+        server in ``degraded`` until the whole process restarts — the retry/park loop in run()
+        never runs. Past the deadline the dead transport is cancelled and the reconnect proceeds."""
+        result = None
+        teardown = anyio.CancelScope()
         try:
-            async with transport_cm as _streams:
-                async with _core.ClientSession(_streams[0], _streams[1], **self._session_kwargs()) as session:
-                    return await self._serve_session(session, connect_timeout, label)
+            with teardown:
+                async with transport_cm as _streams:
+                    async with _core.ClientSession(_streams[0], _streams[1], **self._session_kwargs()) as session:
+                        result = await self._serve_session(session, connect_timeout, label)
+                        teardown.deadline = anyio.current_time() + _core._TRANSPORT_TEARDOWN_TIMEOUT
         except BaseExceptionGroup as _eg:
             return self._reconnect_or_reraise_group(_eg)
+        if teardown.cancelled_caught:
+            logger.warning("MCP server '%s': %s transport teardown exceeded %.0fs, abandoning the dead "
+                           "transport and continuing (%s)", self.name, label,
+                           _core._TRANSPORT_TEARDOWN_TIMEOUT, result)
+        return result
 
     # ------------------------------------------------------------------ stdio
 
