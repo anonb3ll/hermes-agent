@@ -153,6 +153,61 @@ def test_boot_never_activates_the_pre_pm_venv(tmp_path, monkeypatch, interpreter
     assert result.stdout.strip().startswith(expected), result.stdout
 
 
+@pytest.mark.parametrize("interpreter", ["store", "venv"])
+def test_generation_built_for_another_interpreter_is_not_selected(tmp_path, monkeypatch, interpreter):
+    """A generation built for one interpreter must never be injected into another.
+
+    Its compiled modules cannot load there, and selecting it strips the running
+    interpreter's own site-packages, so every third-party import dies far from the
+    selection: HTTP-transport MCP servers park with "mcp.client.streamable_http is not
+    available" and cron workers lose ruamel.
+    """
+    import os
+    import subprocess
+    import sys
+    from pm import environments as runtime_paths
+
+    base_python = getattr(sys, "_base_executable", sys.executable)
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
+    root = tmp_path / "repo"
+    state = runtime_paths.install_state_dir(root)
+    generation = state / "environments" / "other" / "venv"
+    major, minor = sys.version_info.major, sys.version_info.minor
+    other = (major, minor + 1) if minor < 20 else (major - 1, minor)
+    mismatched = generation / f"lib/python{other[0]}.{other[1]}/site-packages"
+    mismatched.mkdir(parents=True)
+    (generation / "pyvenv.cfg").write_text(f"home = test\nversion = {other[0]}.{other[1]}.0\n")
+    (mismatched / "generation_only.py").write_text("")
+    (state / "facts.json").write_text(json.dumps({"schema": 1, "packages": {
+        "venv": {"environment": str(generation)}
+    }}))
+    python = base_python
+    if interpreter == "venv":
+        subprocess.run([base_python, "-m", "venv", "--without-pip", str(tmp_path / "dev")],
+                       check=True, timeout=60)
+        python = str(runtime_paths.venv_python(tmp_path / "dev"))
+        own = runtime_paths.site_packages(tmp_path / "dev")
+        own.mkdir(parents=True, exist_ok=True)
+        (own / "own_only.py").write_text("")
+    repo = Path(__file__).resolve().parents[2]
+    code = (
+        "import sys, importlib.util; from pathlib import Path; sys.path.insert(0, sys.argv[1]); "
+        "from pm.environments import activate_dependencies\n"
+        "try:\n    activate_dependencies(Path(sys.argv[2]))\n"
+        "except RuntimeError as exc:\n    print('refused:', exc); raise SystemExit(0)\n"
+        "print('generation importable:', importlib.util.find_spec('generation_only') is not None)\n"
+        "print('own importable:', importlib.util.find_spec('own_only') is not None)"
+    )
+    result = subprocess.run([python, "-I", "-c", code, str(repo), str(root)], env=dict(os.environ),
+                            capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    if interpreter == "store":
+        assert result.stdout.strip().startswith(
+            "refused: the committed dependency environment was built for Python"), result.stdout
+    else:
+        assert result.stdout.splitlines() == ["generation importable: False", "own importable: True"], result.stdout
+
+
 @pytest.mark.parametrize("data", [[], {"packages": []}, {"packages": {"venv": []}}])
 def test_malformed_selection_has_actionable_error(tmp_path, monkeypatch, data):
     from pm import environments as runtime_paths

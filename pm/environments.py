@@ -311,6 +311,22 @@ def activate_dependencies(project_root: Path) -> None:
             environment = committed_venv(project_root)
             if environment is None:
                 return _require_own_dependencies(project_root)
+            built = venv_python_version(environment)
+            if built is not None and built != (sys.version_info.major, sys.version_info.minor):
+                # A generation's compiled modules carry the ABI of the interpreter that built
+                # it. Selecting one for a different interpreter puts unimportable
+                # site-packages on sys.path -- and strips the running interpreter's own --
+                # so every third-party import dies far from here: HTTP-transport MCP servers
+                # park with "mcp.client.streamable_http is not available" and cron workers
+                # lose ruamel. Keep the launch contract instead (prepare_launch is what moves
+                # a process onto the generation's interpreter).
+                if sys.prefix != sys.base_prefix:
+                    return  # a venv interpreter carries its own packages
+                raise RuntimeError(
+                    "the committed dependency environment was built for Python "
+                    f"{built[0]}.{built[1]} but this process runs "
+                    f"{sys.version_info.major}.{sys.version_info.minor}"
+                )
             release = lease_generation(environment)
             # Without the lock, an installer may commit a new generation between the
             # read and the lease, leaving the leased one unselected and collectable.
