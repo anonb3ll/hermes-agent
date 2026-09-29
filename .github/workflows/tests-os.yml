@@ -131,18 +131,21 @@ jobs:
           echo "selected file(s) for ${{ matrix.marker }}:"
           cat "$LIST"
 
-          # Desktop-update hand-off integration tests spawn the real
-          # windows.ps1; deselect them unless the PR touched that surface
-          # (see the workflow_call input). ``--ignore-glob`` keeps the file
-          # list above intact, so a renamed test file still trips the
-          # zero-tests guard rather than silently vanishing.
-          # (bash 3.2 on the macOS runner: an empty array under ``set -u`` is
-          # an unbound-variable error, hence the ``${arr[@]+...}`` idiom.)
-          EXTRA_ARGS=()
+          # The runner receives explicit files via --files, so pytest's
+          # --ignore-glob cannot exclude them. Filter the input list before
+          # constructing --files when the desktop-updater lane is off.
           if [ "${{ inputs.desktop_updater }}" != "true" ]; then
             echo "desktop_updater lane off: skipping tests/scripts/desktop_update/test_desktop_update_windows_*.py"
-            EXTRA_ARGS+=(--ignore-glob='*test_desktop_update_windows_*.py')
+            python - "$LIST" <<'PYFILTER'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          paths = path.read_text().splitlines()
+          paths = [p for p in paths if not Path(p).name.startswith("test_desktop_update_windows_")]
+          path.write_text("\n".join(paths) + ("\n" if paths else ""))
+          PYFILTER
           fi
+          [ -s "$LIST" ] || { echo "::error::no ${{ matrix.marker }} test files remain after filtering"; exit 1; }
 
           # ``tr -d '\r'``: on Windows the helper's redirected stdout gains
           # CRLF line endings; a stray \r would corrupt the path. The list
@@ -154,13 +157,12 @@ jobs:
           SEPARATOR="$(python -c 'import os, sys; sys.stdout.write(os.pathsep)')"
           FILES="$(tr -d '\r' < "$LIST" | paste -sd "$SEPARATOR" -)"
           scripts/run_tests.sh --files "$FILES" -- \
-            ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} \
             -m "platforms and not integration" \
             -v --tb=short
         env:
-          # These files spawn nested PowerShell trees. CPU-count parallelism
-          # starves cold child startup before the fixture's idle deadline.
-          HERMES_TEST_WORKERS: ${{ matrix.marker == 'windows' && (runner.arch == 'ARM64' && '2' || '8') || '' }}
+          # Standard Windows runners have 4 vCPUs (ARM has 2); tests spawn
+          # nested PowerShell trees, so keep at most two files in flight.
+          HERMES_TEST_WORKERS: ${{ matrix.marker == 'windows' && '2' || '' }}
           # Belt-and-suspenders with tests/conftest.py's env blanking: no
           # test may reach a real provider API.
           OPENROUTER_API_KEY: ''
