@@ -247,6 +247,7 @@ def test_generation_built_for_another_interpreter_is_not_selected(tmp_path, monk
 
 def test_lock_free_publication_rechecks_final_generation_python(tmp_path, monkeypatch):
     """A generation published after the initial read must pass the same ABI check."""
+    import os
     import sys
     from contextlib import contextmanager
 
@@ -282,12 +283,16 @@ def test_lock_free_publication_rechecks_final_generation_python(tmp_path, monkey
         runtime_paths, "committed_venv", lambda _project: next(selections)
     )
 
+    original_path = list(sys.path)
+    original_pythonpath = os.environ.get("PYTHONPATH")
     if sys.prefix != sys.base_prefix:
         # A process already in a venv retains its own dependency tree.
         runtime_paths.activate_dependencies(root)
     else:
         with pytest.raises(RuntimeError, match="was built for Python"):
             runtime_paths.activate_dependencies(root)
+    assert sys.path == original_path
+    assert os.environ.get("PYTHONPATH") == original_pythonpath
 
 
 @pytest.mark.parametrize("data", [[], {"packages": []}, {"packages": {"venv": []}}])
