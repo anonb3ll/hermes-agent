@@ -245,6 +245,51 @@ def test_generation_built_for_another_interpreter_is_not_selected(tmp_path, monk
         assert result.stdout.splitlines() == ["generation importable: False", "own importable: True"], result.stdout
 
 
+def test_lock_free_publication_rechecks_final_generation_python(tmp_path, monkeypatch):
+    """A generation published after the initial read must pass the same ABI check."""
+    import sys
+    from contextlib import contextmanager
+
+    from hermes_cli import runtime_state
+    from pm import environments as runtime_paths
+
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
+    root = tmp_path / "repo"
+    state = runtime_paths.install_state_dir(root)
+    compatible = state / "environments" / "old" / "venv"
+    incompatible = state / "environments" / "new" / "venv"
+    major, minor = sys.version_info.major, sys.version_info.minor
+    other = (major, minor + 1) if minor < 20 else (major - 1, minor)
+    for environment, version in ((compatible, (major, minor)), (incompatible, other)):
+        environment.mkdir(parents=True)
+        (environment / "pyvenv.cfg").write_text(
+            f"home = test\nversion = {version[0]}.{version[1]}.0\n"
+        )
+    # The facts file exists, but a generation for a different ABI has no importable
+    # site-packages for this interpreter. The initial selection is compatible.
+    (state / "facts.json").write_text("{}")
+
+    @contextmanager
+    def lock_not_acquired(_project):
+        yield False
+
+    monkeypatch.setattr(runtime_state, "runtime_lock", lock_not_acquired)
+    monkeypatch.setattr(
+        runtime_state, "lease_generation", lambda _environment: lambda: None
+    )
+    selections = iter((compatible, incompatible, incompatible))
+    monkeypatch.setattr(
+        runtime_paths, "committed_venv", lambda _project: next(selections)
+    )
+
+    if sys.prefix != sys.base_prefix:
+        # A process already in a venv retains its own dependency tree.
+        runtime_paths.activate_dependencies(root)
+    else:
+        with pytest.raises(RuntimeError, match="was built for Python"):
+            runtime_paths.activate_dependencies(root)
+
+
 @pytest.mark.parametrize("data", [[], {"packages": []}, {"packages": {"venv": []}}])
 def test_malformed_selection_has_actionable_error(tmp_path, monkeypatch, data):
     from pm import environments as runtime_paths

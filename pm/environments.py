@@ -302,6 +302,29 @@ def _require_own_dependencies(project_root: Path) -> None:
         raise RuntimeError("no dependency environment is committed for this install")
 
 
+def _generation_matches_interpreter(environment: Path) -> bool:
+    """Keep an incompatible committed generation out of this process's import path."""
+    import sys
+
+    built = venv_python_version(environment)
+    if built is None or built == (sys.version_info.major, sys.version_info.minor):
+        return True
+    # A generation's compiled modules carry the ABI of the interpreter that built
+    # it. Selecting one for a different interpreter puts unimportable
+    # site-packages on sys.path -- and strips the running interpreter's own --
+    # so every third-party import dies far from here: HTTP-transport MCP servers
+    # park with "mcp.client.streamable_http is not available" and cron workers
+    # lose ruamel. Keep the launch contract instead (prepare_launch is what moves
+    # a process onto the generation's interpreter).
+    if sys.prefix != sys.base_prefix:
+        return False  # a venv interpreter carries its own packages
+    raise RuntimeError(
+        "the committed dependency environment was built for Python "
+        f"{built[0]}.{built[1]} but this process runs "
+        f"{sys.version_info.major}.{sys.version_info.minor}"
+    )
+
+
 def activate_dependencies(project_root: Path) -> None:
     """Select the committed tree at process boot, before third-party imports.
 
@@ -322,28 +345,17 @@ def activate_dependencies(project_root: Path) -> None:
             environment = committed_venv(project_root)
             if environment is None:
                 return _require_own_dependencies(project_root)
-            built = venv_python_version(environment)
-            if built is not None and built != (sys.version_info.major, sys.version_info.minor):
-                # A generation's compiled modules carry the ABI of the interpreter that built
-                # it. Selecting one for a different interpreter puts unimportable
-                # site-packages on sys.path -- and strips the running interpreter's own --
-                # so every third-party import dies far from here: HTTP-transport MCP servers
-                # park with "mcp.client.streamable_http is not available" and cron workers
-                # lose ruamel. Keep the launch contract instead (prepare_launch is what moves
-                # a process onto the generation's interpreter).
-                if sys.prefix != sys.base_prefix:
-                    return  # a venv interpreter carries its own packages
-                raise RuntimeError(
-                    "the committed dependency environment was built for Python "
-                    f"{built[0]}.{built[1]} but this process runs "
-                    f"{sys.version_info.major}.{sys.version_info.minor}"
-                )
+            if not _generation_matches_interpreter(environment):
+                return
             release = lease_generation(environment)
             # Without the lock, an installer may commit a new generation between the
             # read and the lease, leaving the leased one unselected and collectable.
             while not held and (current := committed_venv(project_root)) not in (None, environment):
                 release()
-                environment, release = current, lease_generation(current)
+                environment = current
+                if not _generation_matches_interpreter(environment):
+                    return
+                release = lease_generation(environment)
             selected = site_packages(environment)
             if not selected.is_dir() and not runtime_facts_path(project_root).is_file():
                 return
