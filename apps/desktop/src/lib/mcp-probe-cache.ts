@@ -9,6 +9,11 @@ import type { McpTestResult } from '@/hermes'
 
 export const NEEDS_AUTH_RE = /\b(401|unauthorized|forbidden|invalid[_ ]?token|authentication|oauth)\b/i
 
+const EXPLICIT_AUTH_RE = /\b(401|unauthorized|invalid[_ ]?token)\b/i
+
+const SESSION_RECONNECT_RE =
+  /\b(session (?:not found|terminated|expired)|unknown session|invalid or expired session|transport is down; reconnect requested)\b/i
+
 // Probe results outlive any component: each probe is a real connect/disconnect,
 // so re-entering the MCP page (or a background sweep) must not re-probe the
 // fleet. Manual refresh / auth / toggle-on bypass the cache.
@@ -34,10 +39,22 @@ export function freshProbe(key: string, now = Date.now()): McpTestResult | null 
 }
 
 /** Classify a finished probe the way the MCP page's status dot does. */
-export function classifyProbe(result: McpTestResult): 'error' | 'needs-auth' | 'ok' {
+export function classifyProbe(result: McpTestResult): 'error' | 'needs-auth' | 'ok' | 'reconnecting' {
   if (result.ok) {
     return 'ok'
   }
 
-  return NEEDS_AUTH_RE.test(result.error ?? '') ? 'needs-auth' : 'error'
+  const error = result.error ?? ''
+
+  // An MCP session lost during a hub restart can mention OAuth machinery in the
+  // wrapper error. Only an explicit auth rejection outranks the session signal.
+  if (EXPLICIT_AUTH_RE.test(error)) {
+    return 'needs-auth'
+  }
+
+  if (SESSION_RECONNECT_RE.test(error)) {
+    return 'reconnecting'
+  }
+
+  return NEEDS_AUTH_RE.test(error) ? 'needs-auth' : 'error'
 }

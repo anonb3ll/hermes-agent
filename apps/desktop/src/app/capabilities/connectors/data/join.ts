@@ -273,7 +273,8 @@ const RUNTIME_STATUS = {
   connecting: 'probing',
   disabled: 'off',
   failed: 'error',
-  lazy: 'unknown'
+  lazy: 'unknown',
+  reconnecting: 'reconnecting'
 } satisfies Record<McpRuntimeStatus, LocalServerStatus>
 
 export interface PluginServerJoinInput {

@@ -1328,6 +1328,7 @@ export const ja = defineLocale({
       costTokens: tokens => `1 呼び出しあたり約 ${tokens} トークン`,
       usage30d: uses => `過去 30 日で ${uses} 回使用`,
       statusConnecting: '接続中…',
+      statusReconnecting: '再接続中…',
       statusNeedsAuth: '認証が必要です',
       statusError: 'エラー',
       statusOff: 'オフ',

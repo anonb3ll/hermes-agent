@@ -242,6 +242,7 @@ export interface Translations {
         offByYourOrganisation: string
         offForYou: string
         serverConnecting: string
+        serverReconnecting: string
         serverError: string
         serverNeedsAuth: string
         serverOff: string
@@ -1510,6 +1511,7 @@ export interface Translations {
       costTokens: (tokens: string) => string
       usage30d: (uses: string) => string
       statusConnecting: string
+      statusReconnecting: string
       statusNeedsAuth: string
       statusError: string
       statusOff: string

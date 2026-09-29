@@ -1365,6 +1365,7 @@ export const zhHant = defineLocale({
       costTokens: tokens => `每次呼叫約 ${tokens} token`,
       usage30d: uses => `30 天內 ${uses} 次呼叫`,
       statusConnecting: '連線中…',
+      statusReconnecting: '正在重新連線…',
       statusNeedsAuth: '需要驗證',
       statusError: '錯誤',
       statusOff: '關閉',

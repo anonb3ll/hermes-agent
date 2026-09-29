@@ -17671,6 +17671,7 @@
       "McpRuntimeStatus": {
         "enum": [
           "connected",
+          "reconnecting",
           "disabled",
           "connecting",
           "failed",

@@ -391,6 +391,7 @@ method("mcp.servers.list", params=ProfileParams, result=McpServersListResult,
 
 class McpRuntimeStatus(WireEnum):
     connected = "connected"
+    reconnecting = "reconnecting"
     disabled = "disabled"
     connecting = "connecting"
     failed = "failed"

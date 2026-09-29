@@ -1,6 +1,6 @@
 export type ConnectorResidency = 'hosted' | 'local'
 
-export type LocalServerStatus = 'error' | 'needs-auth' | 'off' | 'ok' | 'probing' | 'unknown'
+export type LocalServerStatus = 'error' | 'needs-auth' | 'off' | 'ok' | 'probing' | 'reconnecting' | 'unknown'
 
 export interface HostedConnectorInput {
   accountLabel?: string
@@ -67,6 +67,7 @@ export type ConnectorStateWord =
   | 'offByYourOrganisation'
   | 'offForYou'
   | 'serverConnecting'
+  | 'serverReconnecting'
   | 'serverError'
   | 'serverNeedsAuth'
   | 'serverOff'
@@ -109,6 +110,7 @@ export interface ConnectorWayLocal {
   installed?: boolean
   needsEnv?: boolean
   plugin?: string
+  reconnecting?: boolean
   reason?: ConnectorReason
   serverEnabled?: boolean
   serverName?: string

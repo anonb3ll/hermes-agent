@@ -3,7 +3,7 @@ import { compactNumber } from '@hermes/shared'
 import { getUsageAnalytics, type McpTestResult, type ProfileScope } from '@/hermes'
 import type { Translations } from '@/i18n'
 import { estimateServerTokens, serverUsageCount } from '@/lib/mcp-cost'
-import { NEEDS_AUTH_RE } from '@/lib/mcp-probe-cache'
+import { classifyProbe } from '@/lib/mcp-probe-cache'
 import { type McpServerEntry, serverEnabled } from '@/lib/mcp-servers'
 import { countEnabledTools } from '@/lib/mcp-tool-filter'
 
@@ -11,7 +11,7 @@ export const MCP_CATALOG_KEY = ['mcp-catalog'] as const
 
 export type Probe = McpTestResult | 'probing'
 
-export type ServerStatus = 'error' | 'needs-auth' | 'off' | 'ok' | 'probing' | 'unknown'
+export type ServerStatus = 'error' | 'needs-auth' | 'off' | 'ok' | 'probing' | 'reconnecting' | 'unknown'
 
 export const okProbe = (probe: Probe | undefined): McpTestResult | null =>
   probe && probe !== 'probing' && probe.ok ? probe : null
@@ -62,7 +62,7 @@ export function statusOf(server: McpServerEntry, probe: Probe | undefined): Serv
     return 'ok'
   }
 
-  return NEEDS_AUTH_RE.test(probe.error ?? '') ? 'needs-auth' : 'error'
+  return classifyProbe(probe)
 }
 
 export const STATUS_DOT = {
@@ -70,6 +70,7 @@ export const STATUS_DOT = {
   error: 'bg-red-500',
   'needs-auth': 'bg-amber-500',
   probing: 'animate-pulse bg-foreground/40',
+  reconnecting: 'animate-pulse bg-foreground/40',
   off: 'bg-foreground/20',
   unknown: 'bg-foreground/20'
 } satisfies Record<ServerStatus, string>
@@ -127,6 +128,9 @@ export function statusLine(
 
     case 'probing':
       return m.statusConnecting
+
+    case 'reconnecting':
+      return m.statusReconnecting
 
     case 'needs-auth':
       return m.statusNeedsAuth

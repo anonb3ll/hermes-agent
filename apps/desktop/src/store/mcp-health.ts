@@ -28,11 +28,11 @@ import { $gatewayState } from '@/store/session'
 // there is nothing for a user to meaningfully tune.
 const CHECK_INTERVAL_MS = 30 * 60_000
 
-export type McpHealthStatus = 'error' | 'needs-auth' | 'ok'
+export type McpHealthStatus = 'error' | 'needs-auth' | 'ok' | 'reconnecting'
 
 /**
  * The notify decision, as a pure state machine: nudge on a TRANSITION into a
- * bad state — never for ok. An unknown previous state (first sweep of the
+ * bad state — never for ok or reconnecting. An unknown previous state (first sweep of the
  * session) notifies only when its persisted cooldown is absent or elapsed,
  * so an expired token discovered at launch is still surfaced without
  * re-notifying after a renderer restart.

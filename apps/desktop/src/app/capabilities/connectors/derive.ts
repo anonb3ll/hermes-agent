@@ -52,6 +52,7 @@ const LOCAL_PHASES = {
   off: { reason: undefined, state: 'off', verb: undefined },
   ok: { reason: undefined, state: 'connected', verb: undefined },
   probing: { reason: undefined, state: 'connecting', verb: undefined },
+  reconnecting: { reason: undefined, state: 'connecting', verb: undefined },
   unknown: { reason: undefined, state: 'connecting', verb: undefined }
 } satisfies Record<LocalServerStatus, Phase>
 
@@ -146,6 +147,7 @@ export function localWay(server: LocalServerInput): ConnectorWayLocal {
     inCatalog: server.inCatalog,
     installed: true,
     plugin: server.plugin,
+    reconnecting: status === 'reconnecting',
     reason: phase.reason ? { key: phase.reason } : undefined,
     serverEnabled: server.enabled,
     serverName: server.name,
@@ -198,6 +200,10 @@ export function hostedStateWord(way: ConnectorWayHosted): ConnectorStateWord {
 export function localWord(way: ConnectorWayLocal): ConnectorStateWord {
   if (way.reason?.key === 'serverNeedsAuth') {
     return 'serverNeedsAuth'
+  }
+
+  if (way.reconnecting) {
+    return 'serverReconnecting'
   }
 
   return way.state === 'connected' && way.unused === true ? 'serverOnUnused' : LOCAL_WORDS[way.state]

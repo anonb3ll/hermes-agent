@@ -713,7 +713,8 @@ def is_mcp_tool_parallel_safe(tool_name: str) -> bool:
 
 def get_mcp_status(configured: Optional[Dict[str, dict]] = None, *, include_runtime: bool = True) -> List[dict]:
     """Per-server status dicts for banner/TUI: name, transport, tools, connected, disabled,
-    status (connected / disabled / connecting / failed / lazy / configured) and error for failed.
+    status (connected / reconnecting / disabled / connecting / failed / lazy / configured)
+    and error for failed.
     Reads cached runtime state only; never connects.
 
     ``lazy`` is a registered-but-not-spawned server (``lazy: true``, tools from the schema
@@ -748,10 +749,13 @@ def get_mcp_status(configured: Optional[Dict[str, dict]] = None, *, include_runt
     for name, cfg in configured.items():
         enabled = mcp_server_enabled(cfg)  # evaluated unconditionally: malformed values warn even when connected
         server = active_servers.get(name)
-        live = server is not None and server.session is not None
-        # An in-flight or failed first-use connect outranks "lazy": that server is no longer
-        # merely waiting to be spawned, and the error is the actionable part.
-        status = ("connected" if live else "disabled" if not enabled else "connecting" if name in connecting
+        rebuilding = enabled and _session_rebuilding(server)
+        live = server is not None and server.session is not None and not rebuilding
+        # A reconnect signal can precede teardown of the stale session. Do not show it as
+        # connected (or as an auth failure) during that window. A failed first connect still
+        # outranks "lazy": that server is no longer merely waiting to be spawned.
+        status = ("reconnecting" if rebuilding else "connected" if live else "disabled" if not enabled
+                  else "connecting" if name in connecting
                   else "failed" if name in connect_errors else "lazy" if name in lazy_tools else "configured")
         entry = {"name": name, "transport": cfg.get("transport", "http") if "url" in cfg else "stdio",
                  "tools": 0, "connected": False, "disabled": status == "disabled", "status": status}
@@ -767,6 +771,23 @@ def get_mcp_status(configured: Optional[Dict[str, dict]] = None, *, include_runt
             entry["tools"] = lazy_tools[name]
         result.append(entry)
     return result
+
+
+def _session_rebuilding(server: Optional[_core.MCPServerTask]) -> bool:
+    """Cached transient reconnect state for a previously working transport.
+
+    A signalled reconnect may briefly retain the old session until the run task tears it
+    down. Permanent auth/config parks require user action and are never called reconnecting.
+    """
+    if server is None or not getattr(server, "_ever_connected", False):
+        return False
+    if "permanent" in (getattr(server, "_park_reason", None) or ""):
+        return False
+    task = getattr(server, "_task", None)
+    if task is not None and task.done():
+        return False
+    event = getattr(server, "_reconnect_event", None)
+    return server.session is None or (event is not None and event.is_set())
 
 
 def mcp_server_reconnecting(name: str) -> bool:

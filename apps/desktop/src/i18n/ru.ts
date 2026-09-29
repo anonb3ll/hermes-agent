@@ -1492,6 +1492,7 @@ export const ru = defineLocale({
       costTokens: tokens => `~${tokens} ток/вызов`,
       usage30d: uses => `${uses} ${RU_NOUN(uses, 'использование', 'использования', 'использований')}/30д`,
       statusConnecting: 'Подключение…',
+      statusReconnecting: 'Повторное подключение…',
       statusNeedsAuth: 'Нужна аутентификация',
       statusError: 'Ошибка',
       statusOff: 'Выкл',

@@ -11,6 +11,7 @@ duplicate/not-found error envelopes.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -203,6 +204,11 @@ def test_status_includes_named_profile_runtime_in_multiplex(hermes_root):
         _registered_tool_names=["work_tool"],
         _tools=[],
         _sampling=None,
+        _ever_connected=True,
+        _park_reason=None,
+        _task=None,
+        _reconnecting=False,
+        _reconnect_event=asyncio.Event(),
     )
     previous_multiplex = is_multiplex_active()
     with mcp_tool._lock:
@@ -214,6 +220,9 @@ def test_status_includes_named_profile_runtime_in_multiplex(hermes_root):
     set_multiplex_active(True)
     try:
         payload = _result(_call("mcp.servers.status", {"profile": "work"}))
+        work_server._reconnect_event.set()
+        rebuilding = _result(_call("mcp.servers.status", {"profile": "work"}))
+        other = _result(_call("mcp.servers.status", {"profile": "other"}))
     finally:
         set_multiplex_active(previous_multiplex)
         with mcp_tool._lock:
@@ -224,6 +233,9 @@ def test_status_includes_named_profile_runtime_in_multiplex(hermes_root):
 
     assert payload["servers"][0]["status"] == "connected"
     assert payload["servers"][0]["tools"] == 1
+    assert rebuilding["servers"][0]["status"] == "reconnecting"
+    assert rebuilding["servers"][0]["connected"] is False
+    assert other["servers"] == []
 
 
 def test_set_api_key_writes_env_and_header_to_right_profile(hermes_root):

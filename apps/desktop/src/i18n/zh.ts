@@ -1712,6 +1712,7 @@ export const zh = defineLocale({
       costTokens: tokens => `每次调用约 ${tokens} token`,
       usage30d: uses => `30 天内 ${uses} 次调用`,
       statusConnecting: '连接中…',
+      statusReconnecting: '正在重新连接…',
       statusNeedsAuth: '需要认证',
       statusError: '错误',
       statusOff: '关闭',

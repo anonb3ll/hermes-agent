@@ -64,7 +64,7 @@ vi.mock('@/store/session', () => ({
 
 const { shouldNotify, startMcpHealthChecker, stopMcpHealthChecker } = await import('./mcp-health')
 
-type Status = 'error' | 'needs-auth' | 'ok'
+type Status = 'error' | 'needs-auth' | 'ok' | 'reconnecting'
 
 const flush = () => new Promise(resolve => setTimeout(resolve, 0))
 
@@ -89,9 +89,11 @@ describe('shouldNotify', () => {
   // later status transitions still notify. Ok never nudges.
   it.each<[previous: Status | null, next: Status, notify: boolean]>([
     [null, 'ok', false],
+    [null, 'reconnecting', false],
     [null, 'needs-auth', false],
     [null, 'error', false],
     ['ok', 'ok', false],
+    ['needs-auth', 'reconnecting', false],
     ['ok', 'needs-auth', true],
     ['ok', 'error', true],
     ['needs-auth', 'needs-auth', false],
@@ -114,6 +116,7 @@ describe('shouldNotify', () => {
     expect(shouldNotify('error', 'error', now, now)).toBe(true)
     expect(shouldNotify('ok', 'ok', now - DAY, now)).toBe(false)
     expect(shouldNotify('needs-auth', 'ok', 0, now)).toBe(false)
+    expect(shouldNotify('error', 'reconnecting', 0, now)).toBe(false)
   })
 })
 
