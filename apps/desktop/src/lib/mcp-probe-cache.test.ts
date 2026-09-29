@@ -32,8 +32,13 @@ describe('classifyProbe', () => {
     expect(classifyProbe(result({ ok: false, error }))).toBe('reconnecting')
   })
 
-  it('keeps an explicit 401 as an auth failure even with a stale-session marker', () => {
-    expect(classifyProbe(result({ ok: false, error: 'HTTP 401 Unauthorized: Session not found' }))).toBe('needs-auth')
+  it.each([
+    'HTTP 401 Unauthorized: Session not found',
+    'HTTP 403 Forbidden: Session not found',
+    'OAuth authorization required: Session not found',
+    'Authentication failed: Session terminated'
+  ])('keeps an explicit auth rejection as needs-auth despite a session marker: %s', error => {
+    expect(classifyProbe(result({ ok: false, error }))).toBe('needs-auth')
   })
 
   it('classifies a failure without an error string as error', () => {

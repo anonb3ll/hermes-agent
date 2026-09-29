@@ -9,7 +9,8 @@ import type { McpTestResult } from '@/hermes'
 
 export const NEEDS_AUTH_RE = /\b(401|unauthorized|forbidden|invalid[_ ]?token|authentication|oauth)\b/i
 
-const EXPLICIT_AUTH_RE = /\b(401|unauthorized|invalid[_ ]?token)\b/i
+const EXPLICIT_AUTH_RE =
+  /\b(401|403|unauthorized|forbidden|invalid[_ ]?token|authentication (?:required|failed)|authorization required|access denied|permission denied)\b/i
 
 const SESSION_RECONNECT_RE =
   /\b(session (?:not found|terminated|expired)|unknown session|invalid or expired session|transport is down; reconnect requested)\b/i
