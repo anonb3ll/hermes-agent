@@ -152,7 +152,9 @@ jobs:
     # See scripts/check-windows-footguns.py for the full rule list.
     name: Windows footguns (blocking)
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # Two advisory diff fetches each have a three-minute step budget; preserve
+    # time for checkout, setup, and all blocking static checks.
+    timeout-minutes: 12
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -217,7 +219,7 @@ jobs:
         if: github.event_name == 'pull_request'
         continue-on-error: true
         # Bound the advisory step so a long deepen/fetch (e.g. a distant or missing
-        # merge-base) can't consume the blocking job's 5-minute budget and cancel it.
+        # merge-base) can't consume the blocking job's budget and cancel it.
         # continue-on-error already keeps a step *failure* off the job; a step-level
         # timeout keeps a step *overrun* off the job-level timeout the same way.
         # Sizing: a --deepen=200 fetch took ~56s and a --deepen=1000 ~67s on the runner, and
