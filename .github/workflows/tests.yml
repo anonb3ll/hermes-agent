@@ -223,7 +223,8 @@ jobs:
     name: e2e-upgrade (${{ matrix.shard }})
     needs: e2e-upgrade-plan
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Two heavy files in flight can take four waves in the largest shard.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -330,9 +331,9 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}
           # Each file drives real installs/updaters (process trees plus uv and
-          # git I/O); cpu_count of them at once starves their deadlines. A
-          # shard holds at most ~7 files, so this runs each shard in one wave.
-          HERMES_TEST_WORKERS: "6"
+          # git I/O). Standard ubuntu-latest has 4 vCPUs; keep two heavy
+          # installs in flight so gateway startup can meet its deadline.
+          HERMES_TEST_WORKERS: "2"
           HERMES_TEST_FILE_TIMEOUT: "3000"
           OPENROUTER_API_KEY: ""
           OPENAI_API_KEY: ""
