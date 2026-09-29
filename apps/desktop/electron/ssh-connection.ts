@@ -37,6 +37,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { platformDefaultHermesHome } from './data-paths'
+import { type ControlMasterHolders, sharedControlMasterHolders } from './ssh-control-master-holders'
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 15_000
 const DEFAULT_EXEC_TIMEOUT_MS = 20_000
@@ -650,6 +651,7 @@ class SshConnection {
   _opened: boolean
   _mux: boolean
   _tunnels: Map<string, any>
+  _controlMasters: ControlMasterHolders
 
   constructor(cfg, opts: any = {}) {
     if (!cfg || !cfg.host) {
@@ -681,6 +683,7 @@ class SshConnection {
         })
       : ''
     this._tunnels = new Map()
+    this._controlMasters = opts.controlMasterHolders || sharedControlMasterHolders
 
     this._spawnFn = opts.spawnFn || spawn
 
@@ -736,10 +739,47 @@ class SshConnection {
     return err
   }
 
+  // The classified error only reaches the caller (the renderer shows friendly
+  // copy for its kind), so record what ssh actually did — exit code, close
+  // signal, stderr — in desktop.log. Without it a connect that dies right after
+  // TCP setup leaves nothing to diagnose it by (#80836).
+  _connectFailed(raw) {
+    const err = this._fail(raw, SSH_ERROR.UNREACHABLE)
+
+    if (err?.kind !== 'superseded') {
+      const code = raw && typeof raw === 'object' && 'code' in raw ? String(raw.code) : '?'
+      const stderr = String(sshCloseStderr(raw)).trim().slice(-500) || '(empty)'
+
+      this._logLine(
+        `connect to ${target(this.user, this.host)}:${this.port} failed ` +
+          `(kind=${err.kind}, exit=${code}, signal=${sshCloseSignal(raw) || 'none'}): ${stderr}`
+      )
+    }
+
+    return err
+  }
+
   // Open the connection. Mux: start the persistent ControlMaster (idempotent —
   // a live master is a no-op). No-mux: there is no master; validate auth +
   // reachability with a one-shot `ssh true` so failures classify identically.
   async open({ signal }: any = {}) {
+    if (!this._mux) {
+      return this._open({ signal })
+    }
+
+    // Claim the socket before dialing: a stale connection closing while this
+    // one is still attaching must not exit the master out from under it.
+    this._controlMasters.acquire(this.controlPath, this)
+
+    try {
+      await this._open({ signal })
+    } catch (error) {
+      this._controlMasters.release(this.controlPath, this)
+      throw error
+    }
+  }
+
+  async _open({ signal }: any = {}) {
     if (this._mux) {
       const controlDir = path.dirname(this.controlPath)
 
@@ -788,11 +828,11 @@ class SshConnection {
           signal
         })
       } catch (error) {
-        throw this._fail(error, SSH_ERROR.UNREACHABLE)
+        throw this._connectFailed(error)
       }
 
       if (!sshCloseOk(result)) {
-        throw this._fail(result, SSH_ERROR.UNREACHABLE)
+        throw this._connectFailed(result)
       }
 
       this._opened = true
@@ -808,11 +848,11 @@ class SshConnection {
     try {
       result = await runSsh(args, { timeoutMs: this._connectTimeoutMs, spawnFn: this._spawnFn, signal })
     } catch (error) {
-      throw this._fail(error, SSH_ERROR.UNREACHABLE)
+      throw this._connectFailed(error)
     }
 
     if (!sshCloseOk(result)) {
-      throw this._fail(result, SSH_ERROR.UNREACHABLE)
+      throw this._connectFailed(result)
     }
 
     this._opened = true
@@ -1136,9 +1176,13 @@ class SshConnection {
     }
   }
 
-  // Tear down. Mux: exit the master (drops every forward with it). No-mux:
-  // kill the tunnel children. Best-effort; never throws.
+  // Tear down. Mux: exit the master (drops every forward with it) unless
+  // another connection still holds the same ControlPath — then only release
+  // this connection's claim (#97264). No-mux: kill the tunnel children.
+  // Best-effort; never throws.
   async close() {
+    const action = this._mux ? this._controlMasters.release(this.controlPath, this) : 'exit-master'
+
     if (!this._opened) {
       return
     }
@@ -1159,6 +1203,15 @@ class SshConnection {
 
       this._opened = false
       this._logLine('connection closed (no-mux tunnels killed)')
+
+      return
+    }
+
+    if (action === 'release-only') {
+      this._opened = false
+      this._logLine(
+        `control master left running: ${this._controlMasters.count(this.controlPath)} other connection(s) still use it`
+      )
 
       return
     }
