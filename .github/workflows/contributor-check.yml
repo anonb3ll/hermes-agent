@@ -30,8 +30,9 @@ jobs:
           if [ -z "$BASE_REF" ]; then BASE_REF=origin/main; fi
           MERGE_BASE=$(git merge-base "$BASE_REF" HEAD)
 
-          # Find any new author emails in this PR's commits
-          NEW_EMAILS=$(git log ${MERGE_BASE}..HEAD --format='%ae' --no-merges | sort -u)
+          # Audit commits authored on this PR's branch, not an imported merge
+          # parent's history (for example an upstream sync into a fork).
+          NEW_EMAILS=$(git log ${MERGE_BASE}..HEAD --first-parent --format='%ae' --no-merges | sort -u)
 
           if [ -z "$NEW_EMAILS" ]; then
             echo "No new commits to check."
