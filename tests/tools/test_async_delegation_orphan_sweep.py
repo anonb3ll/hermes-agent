@@ -13,6 +13,7 @@ import subprocess
 import sys
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -314,3 +315,26 @@ def test_throttle_runs_at_most_one_sweep_per_home_per_interval(tmp_path, monkeyp
             ad.maybe_sweep_orphaned_completions(q, now=101.0)
         ad.maybe_sweep_orphaned_completions(q, now=100.0 + ad.ORPHAN_SWEEP_INTERVAL_S + 1)
     assert calls == [str(tmp_path / "a"), str(tmp_path / "b"), str(tmp_path / "a")]
+
+
+def test_secondary_ledger_hydrates_profile_secret_scope(monkeypatch, tmp_path):
+    """A secondary sweep must load its own secret scope, not install an empty one."""
+    from gateway import run
+
+    runner = object.__new__(run.GatewayRunner)
+    runner._primary_profile_name = "default"
+    seen = []
+
+    @contextmanager
+    def spy_scope(home, prepared_secret_scope=None, *, hydrate_secrets=True):
+        seen.append((home, prepared_secret_scope, hydrate_secrets))
+        yield
+
+    monkeypatch.setattr(run, "_profile_runtime_scope", spy_scope)
+    secondary = tmp_path / "secondary"
+    runner._each_secondary_ledger(
+        [("default", tmp_path / "default"), ("secondary", secondary)],
+        lambda: 0,
+        "Re-offered",
+    )
+    assert seen == [(secondary, None, True)]
