@@ -42,6 +42,25 @@ os._exit(0)
 
 
 @pytest.fixture(autouse=True)
+def _isolated_pm_layout(tmp_path, monkeypatch):
+    """Bootstrap metadata belongs to a fixture, even when sources live inside the real home."""
+    from pm import environments, paths
+
+    project = tmp_path / "pm-layout" / "hermes-agent"
+    project.mkdir(parents=True)
+    read_manifest = environments._payload_manifest
+    checkout = Path(REPO).resolve()
+
+    def fixture_manifest(root):
+        return read_manifest(project if root == checkout else root)
+
+    # Gateway/TUI imports activate dependencies from their source location, independently of
+    # HERMES_HOME. Exercise the real source-layout probes against disposable metadata instead.
+    monkeypatch.setattr(environments, "_payload_manifest", fixture_manifest)
+    monkeypatch.setattr(paths, "repo_root", lambda: project)
+
+
+@pytest.fixture(autouse=True)
 def _clean_state():
     ad._reset_for_tests()
     yield
